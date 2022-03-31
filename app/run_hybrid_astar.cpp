@@ -31,19 +31,22 @@
 
 #include <ros/ros.h>
 
-namespace backward {
-backward::SignalHandling sh;
+namespace backward
+{
+    backward::SignalHandling sh;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     ros::init(argc, argv, "run_hybrid_astar");
     ros::NodeHandle node_handle("~");
-
+    // 实例化一个类对象 构造函数的参数为一个私有的节点句柄
     HybridAStarFlow kinodynamic_astar_flow(node_handle);
-
+    // 10Hz
     ros::Rate rate(10);
 
-    while (ros::ok()) {
+    while (ros::ok())
+    {
         kinodynamic_astar_flow.Run();
 
         ros::spinOnce();

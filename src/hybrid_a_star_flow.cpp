@@ -33,19 +33,24 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
-double Mod2Pi(const double &x) {
+double Mod2Pi(const double &x)
+{
     double v = fmod(x, 2 * M_PI);
 
-    if (v < -M_PI) {
+    if (v < -M_PI)
+    {
         v += 2.0 * M_PI;
-    } else if (v > M_PI) {
+    }
+    else if (v > M_PI)
+    {
         v -= 2.0 * M_PI;
     }
 
     return v;
 }
 
-HybridAStarFlow::HybridAStarFlow(ros::NodeHandle &nh) {
+HybridAStarFlow::HybridAStarFlow(ros::NodeHandle &nh)
+{
     double steering_angle = nh.param("planner/steering_angle", 10);
     int steering_angle_discrete_num = nh.param("planner/steering_angle_discrete_num", 1);
     double wheel_base = nh.param("planner/wheel_base", 1.0);
@@ -57,9 +62,8 @@ HybridAStarFlow::HybridAStarFlow(ros::NodeHandle &nh) {
     double shot_distance = nh.param("planner/shot_distance", 5.0);
 
     kinodynamic_astar_searcher_ptr_ = std::make_shared<HybridAStar>(
-            steering_angle, steering_angle_discrete_num, segment_length, segment_length_discrete_num, wheel_base,
-            steering_penalty, reversing_penalty, steering_change_penalty, shot_distance
-    );
+        steering_angle, steering_angle_discrete_num, segment_length, segment_length_discrete_num, wheel_base,
+        steering_penalty, reversing_penalty, steering_change_penalty, shot_distance);
     costmap_sub_ptr_ = std::make_shared<CostMapSubscriber>(nh, "/map", 1);
     init_pose_sub_ptr_ = std::make_shared<InitPoseSubscriber2D>(nh, "/initialpose", 1);
     goal_pose_sub_ptr_ = std::make_shared<GoalPoseSubscriber2D>(nh, "/move_base_simple/goal", 1);
@@ -71,64 +75,68 @@ HybridAStarFlow::HybridAStarFlow(ros::NodeHandle &nh) {
     has_map_ = false;
 }
 
-void HybridAStarFlow::Run() {
-    ReadData();
-
-    if (!has_map_) {
-        if (costmap_deque_.empty()) {
-            return;
+void HybridAStarFlow::Run()
+{
+    ReadData(); // 调用了多个parseData函数，处理了多个队列
+    std::cout << "[Debug] enter\n";
+    if (!has_map_) // 没图
+    {
+        if (costmap_deque_.empty()) // 队列是空的
+        {
+            return; // 直接退出
         }
 
-        current_costmap_ptr_ = costmap_deque_.front();
+        current_costmap_ptr_ = costmap_deque_.front(); // 从队列中取出最开始的地图消息指针
         costmap_deque_.pop_front();
 
-        const double map_resolution = 0.2;
+        const double map_resolution = 0.2; // 地图精度
         kinodynamic_astar_searcher_ptr_->Init(
-                current_costmap_ptr_->info.origin.position.x,
-                1.0 * current_costmap_ptr_->info.width * current_costmap_ptr_->info.resolution,
-                current_costmap_ptr_->info.origin.position.y,
-                1.0 * current_costmap_ptr_->info.height * current_costmap_ptr_->info.resolution,
-                current_costmap_ptr_->info.resolution,
-                map_resolution
-        );
+            current_costmap_ptr_->info.origin.position.x,
+            1.0 * current_costmap_ptr_->info.width * current_costmap_ptr_->info.resolution,  // TODO info中的width指的是多少格
+            current_costmap_ptr_->info.origin.position.y,                                    // origin原点在左下角 所以这里是y_lower
+            1.0 * current_costmap_ptr_->info.height * current_costmap_ptr_->info.resolution, // 这个精度是给的地图的精度，不是算法使用的精度
+            current_costmap_ptr_->info.resolution,
+            map_resolution);
 
-        unsigned int map_w = std::floor(current_costmap_ptr_->info.width / map_resolution);
-        unsigned int map_h = std::floor(current_costmap_ptr_->info.height / map_resolution);
-        for (unsigned int w = 0; w < map_w; ++w) {
-            for (unsigned int h = 0; h < map_h; ++h) {
-                auto x = static_cast<unsigned int> ((w + 0.5) * map_resolution
-                                                    / current_costmap_ptr_->info.resolution);
-                auto y = static_cast<unsigned int> ((h + 0.5) * map_resolution
-                                                    / current_costmap_ptr_->info.resolution);
+        unsigned int map_w = std::floor(current_costmap_ptr_->info.width / map_resolution);  // 向上圆整
+        unsigned int map_h = std::floor(current_costmap_ptr_->info.height / map_resolution); // TODO 为什么是除以呢，如果是除以的话，这个width应该是米的单位
+        std::cout << "[Debug] In run: " << current_costmap_ptr_->info.width << std::endl;
+        for (unsigned int w = 0; w < map_w; ++w)
+        {
+            for (unsigned int h = 0; h < map_h; ++h)
+            { // 除以info中提供的精度，是为了转换到map的格子索引中去，即我希望找到某个具体的横坐标对应于map的哪个格子
+                auto x = static_cast<unsigned int>((w + 0.5) * map_resolution / current_costmap_ptr_->info.resolution);
+                auto y = static_cast<unsigned int>((h + 0.5) * map_resolution / current_costmap_ptr_->info.resolution);
 
-                if (current_costmap_ptr_->data[y * current_costmap_ptr_->info.width + x]) {
+                if (current_costmap_ptr_->data[y * current_costmap_ptr_->info.width + x]) // 如果所在格子被占据了
+                {                                                                         // 设置障碍物
                     kinodynamic_astar_searcher_ptr_->SetObstacle(w, h);
                 }
             }
         }
-        has_map_ = true;
+        has_map_ = true; // 至此，完成了： 初始化算法需要的数据结构->取出地图指针->设置障碍物
     }
     costmap_deque_.clear();
 
-    while (HasStartPose() && HasGoalPose()) {
-        InitPoseData();
+    while (HasStartPose() && HasGoalPose())
+    {
+        InitPoseData(); // 在这里初始化start 和 goal位姿
 
         double start_yaw = tf::getYaw(current_init_pose_ptr_->pose.pose.orientation);
         double goal_yaw = tf::getYaw(current_goal_pose_ptr_->pose.orientation);
 
         Vec3d start_state = Vec3d(
-                current_init_pose_ptr_->pose.pose.position.x,
-                current_init_pose_ptr_->pose.pose.position.y,
-                start_yaw
-        );
+            current_init_pose_ptr_->pose.pose.position.x,
+            current_init_pose_ptr_->pose.pose.position.y,
+            start_yaw);
         Vec3d goal_state = Vec3d(
-                current_goal_pose_ptr_->pose.position.x,
-                current_goal_pose_ptr_->pose.position.y,
-                goal_yaw
-        );
+            current_goal_pose_ptr_->pose.position.x,
+            current_goal_pose_ptr_->pose.position.y,
+            goal_yaw);
 
-        if (kinodynamic_astar_searcher_ptr_->Search(start_state, goal_state)) {
-            auto path = kinodynamic_astar_searcher_ptr_->GetPath();
+        if (kinodynamic_astar_searcher_ptr_->Search(start_state, goal_state)) // 核心
+        {
+            auto path = kinodynamic_astar_searcher_ptr_->GetPath(); // 获取路径
             PublishPath(path);
             PublishVehiclePath(path, 4.0, 2.0, 5u);
             PublishSearchedTree(kinodynamic_astar_searcher_ptr_->GetSearchedTree());
@@ -136,7 +144,8 @@ void HybridAStarFlow::Run() {
             nav_msgs::Path path_ros;
             geometry_msgs::PoseStamped pose_stamped;
 
-            for (const auto &pose: path) {
+            for (const auto &pose : path)
+            {
                 pose_stamped.header.frame_id = "world";
                 pose_stamped.pose.position.x = pose.x();
                 pose_stamped.pose.position.y = pose.y();
@@ -150,7 +159,8 @@ void HybridAStarFlow::Run() {
             path_ros.header.frame_id = "world";
             path_ros.header.stamp = ros::Time::now();
             static tf::TransformBroadcaster transform_broadcaster;
-            for (const auto &pose: path_ros.poses) {
+            for (const auto &pose : path_ros.poses)
+            {
                 tf::Transform transform;
                 transform.setOrigin(tf::Vector3(pose.pose.position.x, pose.pose.position.y, 0.0));
 
@@ -163,27 +173,27 @@ void HybridAStarFlow::Run() {
 
                 transform_broadcaster.sendTransform(tf::StampedTransform(transform,
                                                                          ros::Time::now(), "world",
-                                                                         "ground_link")
-                );
+                                                                         "ground_link"));
 
                 ros::Duration(0.05).sleep();
             }
         }
 
-
         // debug
-//        std::cout << "visited nodes: " << kinodynamic_astar_searcher_ptr_->GetVisitedNodesNumber() << std::endl;
+        //        std::cout << "visited nodes: " << kinodynamic_astar_searcher_ptr_->GetVisitedNodesNumber() << std::endl;
         kinodynamic_astar_searcher_ptr_->Reset();
     }
 }
 
-void HybridAStarFlow::ReadData() {
+void HybridAStarFlow::ReadData()
+{ // 从各个订阅器中拎出来数据，copy到本类管理的成员中
     costmap_sub_ptr_->ParseData(costmap_deque_);
     init_pose_sub_ptr_->ParseData(init_pose_deque_);
     goal_pose_sub_ptr_->ParseData(goal_pose_deque_);
 }
 
-void HybridAStarFlow::InitPoseData() {
+void HybridAStarFlow::InitPoseData()
+{ // 之前已经ReadData过一次了，现在直接从队列中取出队列头部的数据
     current_init_pose_ptr_ = init_pose_deque_.front();
     init_pose_deque_.pop_front();
 
@@ -191,19 +201,23 @@ void HybridAStarFlow::InitPoseData() {
     goal_pose_deque_.pop_front();
 }
 
-bool HybridAStarFlow::HasGoalPose() {
+bool HybridAStarFlow::HasGoalPose()
+{
     return !goal_pose_deque_.empty();
 }
 
-bool HybridAStarFlow::HasStartPose() {
+bool HybridAStarFlow::HasStartPose()
+{
     return !init_pose_deque_.empty();
 }
 
-void HybridAStarFlow::PublishPath(const VectorVec3d &path) {
+void HybridAStarFlow::PublishPath(const VectorVec3d &path)
+{
     nav_msgs::Path nav_path;
 
     geometry_msgs::PoseStamped pose_stamped;
-    for (const auto &pose: path) {
+    for (const auto &pose : path)
+    {
         pose_stamped.header.frame_id = "world";
         pose_stamped.pose.position.x = pose.x();
         pose_stamped.pose.position.y = pose.y();
@@ -220,13 +234,16 @@ void HybridAStarFlow::PublishPath(const VectorVec3d &path) {
 }
 
 void HybridAStarFlow::PublishVehiclePath(const VectorVec3d &path, double width,
-                                         double length, unsigned int vehicle_interval = 5u) {
+                                         double length, unsigned int vehicle_interval = 5u)
+{
     visualization_msgs::MarkerArray vehicle_array;
 
-    for (unsigned int i = 0; i < path.size(); i += vehicle_interval) {
+    for (unsigned int i = 0; i < path.size(); i += vehicle_interval)
+    {
         visualization_msgs::Marker vehicle;
 
-        if (i == 0) {
+        if (i == 0)
+        {
             vehicle.action = 3;
         }
 
@@ -254,7 +271,8 @@ void HybridAStarFlow::PublishVehiclePath(const VectorVec3d &path, double width,
     vehicle_path_pub_.publish(vehicle_array);
 }
 
-void HybridAStarFlow::PublishSearchedTree(const VectorVec4d &searched_tree) {
+void HybridAStarFlow::PublishSearchedTree(const VectorVec4d &searched_tree)
+{
     visualization_msgs::Marker tree_list;
     tree_list.header.frame_id = "world";
     tree_list.header.stamp = ros::Time::now();
@@ -274,7 +292,8 @@ void HybridAStarFlow::PublishSearchedTree(const VectorVec4d &searched_tree) {
     tree_list.pose.orientation.z = 0.0;
 
     geometry_msgs::Point point;
-    for (const auto &i: searched_tree) {
+    for (const auto &i : searched_tree)
+    {
         point.x = i.x();
         point.y = i.y();
         point.z = 0.0;

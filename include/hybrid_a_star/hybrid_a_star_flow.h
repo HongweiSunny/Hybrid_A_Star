@@ -35,7 +35,8 @@
 
 #include <ros/ros.h>
 
-class HybridAStarFlow {
+class HybridAStarFlow
+{
 public:
     HybridAStarFlow() = default;
 
@@ -60,7 +61,7 @@ private:
                             double length, unsigned int vehicle_interval);
 
 private:
-    std::shared_ptr<HybridAStar> kinodynamic_astar_searcher_ptr_;
+    std::shared_ptr<HybridAStar> kinodynamic_astar_searcher_ptr_; // 指向一个HybridAstar对象
     std::shared_ptr<CostMapSubscriber> costmap_sub_ptr_;
     std::shared_ptr<InitPoseSubscriber2D> init_pose_sub_ptr_;
     std::shared_ptr<GoalPoseSubscriber2D> goal_pose_sub_ptr_;
@@ -82,4 +83,4 @@ private:
     bool has_map_{};
 };
 
-#endif //HYBRID_A_STAR_HYBRID_A_STAR_FLOW_H
+#endif // HYBRID_A_STAR_HYBRID_A_STAR_FLOW_H
