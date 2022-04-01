@@ -95,10 +95,10 @@ void HybridAStarFlow::Run()
             1.0 * current_costmap_ptr_->info.width * current_costmap_ptr_->info.resolution,  // TODO info中的width指的是多少格
             current_costmap_ptr_->info.origin.position.y,                                    // origin原点在左下角 所以这里是y_lower
             1.0 * current_costmap_ptr_->info.height * current_costmap_ptr_->info.resolution, // 这个精度是给的地图的精度，不是算法使用的精度
-            current_costmap_ptr_->info.resolution,
-            map_resolution);
+            current_costmap_ptr_->info.resolution, // TODO state_grid_resolution 为什么用这个？和提供的原始地图的像素精度一样？
+            map_resolution); // TODO  map_grid_resolution 为什么用这个
 
-        unsigned int map_w = std::floor(current_costmap_ptr_->info.width / map_resolution);  // 向上圆整
+        unsigned int map_w = std::floor(current_costmap_ptr_->info.width / map_resolution);  // 向上圆整 少乘了原始地图的精度
         unsigned int map_h = std::floor(current_costmap_ptr_->info.height / map_resolution); // TODO 为什么是除以呢，如果是除以的话，这个width应该是米的单位
         std::cout << "[Debug] In run: " << current_costmap_ptr_->info.width << std::endl;
         for (unsigned int w = 0; w < map_w; ++w)
@@ -106,7 +106,7 @@ void HybridAStarFlow::Run()
             for (unsigned int h = 0; h < map_h; ++h)
             { // 除以info中提供的精度，是为了转换到map的格子索引中去，即我希望找到某个具体的横坐标对应于map的哪个格子
                 auto x = static_cast<unsigned int>((w + 0.5) * map_resolution / current_costmap_ptr_->info.resolution);
-                auto y = static_cast<unsigned int>((h + 0.5) * map_resolution / current_costmap_ptr_->info.resolution);
+                auto y = static_cast<unsigned int>((h + 0.5) * map_resolution / current_costmap_ptr_->info.resolution); // 格子中心
 
                 if (current_costmap_ptr_->data[y * current_costmap_ptr_->info.width + x]) // 如果所在格子被占据了
                 {                                                                         // 设置障碍物
@@ -116,11 +116,11 @@ void HybridAStarFlow::Run()
         }
         has_map_ = true; // 至此，完成了： 初始化算法需要的数据结构->取出地图指针->设置障碍物
     }
-    costmap_deque_.clear();
+    costmap_deque_.clear(); // 清空地图队列 是flow对象的成员之一哦～
 
     while (HasStartPose() && HasGoalPose())
-    {
-        InitPoseData(); // 在这里初始化start 和 goal位姿
+    { // 一直在循环中 TODO 这个循环会循环多少次呢
+        InitPoseData(); // 在这里初始化start 和 goal位姿 // 从队列中弹出头部的值 也就是说可以在Rviz中点很多个开始和目标位姿
 
         double start_yaw = tf::getYaw(current_init_pose_ptr_->pose.pose.orientation);
         double goal_yaw = tf::getYaw(current_goal_pose_ptr_->pose.orientation);

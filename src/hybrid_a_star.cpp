@@ -65,7 +65,7 @@ HybridAStar::~HybridAStar() {
 
 void HybridAStar::Init(double x_lower, double x_upper, double y_lower, double y_upper,
                        double state_grid_resolution, double map_grid_resolution) {
-    SetVehicleShape(4.7, 2.0, 1.3);
+    SetVehicleShape(4.7, 2.0, 1.3); // TODO 算法类的成员初始化
 
     map_x_lower_ = x_lower;
     map_x_upper_ = x_upper;
@@ -123,7 +123,7 @@ void HybridAStar::Init(double x_lower, double x_upper, double y_lower, double y_
                 state_node_map_[i][j][k] = nullptr;
             }
         }
-    }
+    } // TODO 需要理解这里的指针矩阵！
 }
 
 inline bool HybridAStar::LineCheck(double x0, double y0, double x1, double y1) {
@@ -437,7 +437,7 @@ bool HybridAStar::BeyondBoundary(const Vec2d &pt) const {
 
 double HybridAStar::ComputeH(const StateNode::Ptr &current_node_ptr,
                              const StateNode::Ptr &terminal_node_ptr) {
-    double h; // TODO 计算H的过程
+    double h; // TODO 计算H的过程 并没有使用A*以得到考虑避障时的代价！！！
     // L2
 //    h = (current_node_ptr->state_.head(2) - terminal_node_ptr->state_.head(2)).norm();
 
@@ -452,7 +452,7 @@ double HybridAStar::ComputeH(const StateNode::Ptr &current_node_ptr,
     }
 
     return h;
-}
+} 
 
 double HybridAStar::ComputeG(const StateNode::Ptr &current_node_ptr,
                              const StateNode::Ptr &neighbor_node_ptr) const {
@@ -512,7 +512,7 @@ bool HybridAStar::Search(const Vec3d &start_state, const Vec3d &goal_state) {
     start_node_ptr->g_cost_ = 0.0;
     start_node_ptr->f_cost_ = ComputeH(start_node_ptr, goal_node_ptr); // f = g + h
 
-    state_node_map_[start_grid_index.x()][start_grid_index.y()][start_grid_index.z()] = start_node_ptr; // 赋予指针
+    state_node_map_[start_grid_index.x()][start_grid_index.y()][start_grid_index.z()] = start_node_ptr; // 赋予普通指针，非智能指针
     state_node_map_[goal_grid_index.x()][goal_grid_index.y()][goal_grid_index.z()] = goal_node_ptr;
 
     openset_.clear(); // open 清空
@@ -528,7 +528,7 @@ bool HybridAStar::Search(const Vec3d &start_state, const Vec3d &goal_state) {
         current_node_ptr->node_status_ = StateNode::IN_CLOSESET; // 更改弹出的节点的状态
         openset_.erase(openset_.begin()); // 弹出
         //  head(2)返回什么 / 获取向量的前2个元素作为向量
-        if ((current_node_ptr->state_.head(2) - goal_node_ptr->state_.head(2)).norm() <= shot_distance_) { /
+        if ((current_node_ptr->state_.head(2) - goal_node_ptr->state_.head(2)).norm() <= shot_distance_) { 
             double rs_length = 0.0; // 在shot距离内了，可以准备去shot了
             if (AnalyticExpansions(current_node_ptr, goal_node_ptr, rs_length)) { // TODO 直接连接当前节点和目标节点，返回连接的路径长度
                 terminal_node_ptr_ = goal_node_ptr;

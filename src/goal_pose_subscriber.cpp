@@ -42,7 +42,7 @@ void GoalPoseSubscriber2D::MessageCallBack(const geometry_msgs::PoseStampedPtr &
 void GoalPoseSubscriber2D::ParseData(std::deque<geometry_msgs::PoseStampedPtr> &pose_data_buff) {
     buff_mutex_.lock();
     if (!goal_poses_.empty()) {
-        pose_data_buff.insert(pose_data_buff.end(), goal_poses_.begin(), goal_poses_.end());
+        pose_data_buff.insert(pose_data_buff.end(), goal_poses_.begin(), goal_poses_.end()); // 
         goal_poses_.clear();
     }
     buff_mutex_.unlock();

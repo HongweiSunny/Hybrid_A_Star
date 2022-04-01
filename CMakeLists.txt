@@ -20,8 +20,9 @@ else ()
                          Please use a different C++ compiler")
 endif ()
 
-set(ADDITIONAL_CXX_FLAG "-Wall -O3 -march=native")
+set(ADDITIONAL_CXX_FLAG "-g -Wall -O0 -march=native") # O0不优化
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADDITIONAL_CXX_FLAG}")
+SET(CMAKE_BUILD_TYPE "Debug")
 
 # Eigen
 # include(cmake/FindEigen.cmake)
@@ -31,7 +32,7 @@ message( STATUS "Eigen的路径：" ${EIGEN_INCLUDE_DIR})
 # glog
 include(cmake/glog.cmake) # 取消使用cmake文件 而使用下面的find_package呢？
 # find_package(glog REQUIRED)
-include_directories(${GLOG_INCLUDE_DIRS})
+include_directories(include ${GLOG_INCLUDE_DIRS})
 
 # catkin
 find_package(
