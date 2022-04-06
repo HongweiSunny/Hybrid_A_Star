@@ -355,39 +355,37 @@ void HybridAStar::GetNeighborNodes(const StateNode::Ptr &curr_node_ptr,
                                    std::vector<StateNode::Ptr> &neighbor_nodes) {
     neighbor_nodes.clear(); // 形参清空
 
-    for (int i = -steering_discrete_num_; i <= steering_discrete_num_; ++i) {
-        VectorVec3d intermediate_state; // TODO 这个数据类型没见过
+    for (int i = -steering_discrete_num_; i <= steering_discrete_num_; ++i) { // 可以改变方向盘转角的离散数目
+        VectorVec3d intermediate_state; // TODO 这个数据类型没见过 vector的元素是vector 3d
         bool has_obstacle = false;
 
         double x = curr_node_ptr->state_.x();
         double y = curr_node_ptr->state_.y();
         double theta = curr_node_ptr->state_.z();
 
-        const double phi = i * steering_radian_step_size_; // TODO 这个参数是多少，步进的前轮转角弧度
+        const double phi = i * steering_radian_step_size_; // TODO 这个参数是多少，步进的前轮转角弧度， 大概10度
 
         // forward
-        for (int j = 1; j <= segment_length_discrete_num_; j++) {
-            DynamicModel(move_step_size_, phi, x, y, theta); // 运动学模型
-            intermediate_state.emplace_back(Vec3d(x, y, theta));
+        for (int j = 1; j <= segment_length_discrete_num_; j++) { // 8m
+            DynamicModel(move_step_size_, phi, x, y, theta); // 运动学模型 // 0.2m 挪动
+            intermediate_state.emplace_back(Vec3d(x, y, theta)); // 生成很多中间态
 
             if (!CheckCollision(x, y, theta)) { // TODO 碰撞检测 
-                has_obstacle = true;
+                has_obstacle = true;// 某个中间态撞到了 就退出了
                 break;
             }
         } // 产生了很多的中间态
 
-        Vec3i grid_index = State2Index(intermediate_state.back());
-        if (!BeyondBoundary(intermediate_state.back().head(2)) && !has_obstacle) { // TODO 碰撞检测通过之后
+        Vec3i grid_index = State2Index(intermediate_state.back()); //  取中间态数组的最后一个
+        if (!BeyondBoundary(intermediate_state.back().head(2)) && !has_obstacle) { // TODO 产生的所有中间态都通过碰撞检测通过之后
             auto neighbor_forward_node_ptr = new StateNode(grid_index);
             neighbor_forward_node_ptr->intermediate_states_ = intermediate_state;
             neighbor_forward_node_ptr->state_ = intermediate_state.back();
             neighbor_forward_node_ptr->steering_grade_ = i;
-            neighbor_forward_node_ptr->direction_ = StateNode::FORWARD;
-            neighbor_nodes.push_back(neighbor_forward_node_ptr); // 最后一个中间态作为邻居节点
-        }
-
+            neighbor_forward_node_ptr->direction = StateNode::FORWARD;
+            neighbor_nodes.push_back(neighbor_forward_node_ptr); // 最后一个中间态作为
         // backward
-        has_obstacle = false;
+        has_obstacle = false; // 重置一下标志
         intermediate_state.clear();
         x = curr_node_ptr->state_.x();
         y = curr_node_ptr->state_.y();
